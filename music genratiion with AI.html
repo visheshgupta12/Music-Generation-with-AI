@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MelodyMind – AI Music Generation with Deep Learning</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Manrope:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0b0920; --ink: #f4f2ff; --muted: #a9a4cf; --glass: rgba(255,255,255,.07); --glass2: rgba(255,255,255,.12); --line: rgba(255,255,255,.14);
+    --brand: #8b6cff; --cyan: #29d3ee; --pink: #ff5fa2; --ok: #3ddc97; --danger: #ff8aa6; --roll: #0f0c2b;
+    --grad: linear-gradient(120deg, #8b6cff 0%, #ff5fa2 55%, #ffb36b 100%);
+    --blob1: #6d4aff; --blob2: #14b8d8; --blob3: #ff4f9a; --blobop: .42;
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f1ff; --ink: #1a1540; --muted: #62599a; --glass: rgba(255,255,255,.75); --glass2: rgba(255,255,255,.95); --line: rgba(80,60,200,.16);
+    --ok: #0b8f5a; --danger: #c62d54; --roll: #ffffff; --blobop: .26;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { color-scheme: light dark; }
+  body { font-family: Manrope, system-ui, sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; line-height: 1.55; overflow-x: hidden; }
+  :focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+  .bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+  .blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: var(--blobop); animation: drift 22s ease-in-out infinite alternate; }
+  .b1 { width: 500px; height: 500px; background: var(--blob1); top: -140px; left: -120px; }
+  .b2 { width: 440px; height: 440px; background: var(--blob2); top: 35%; right: -160px; animation-delay: -8s; }
+  .b3 { width: 380px; height: 380px; background: var(--blob3); bottom: -140px; left: 28%; animation-delay: -14s; }
+  @keyframes drift { to { transform: translate(60px, 40px) scale(1.12); } }
+
+  .wrap { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 24px 20px 56px; }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 40px; }
+  .logo { display: flex; align-items: center; gap: 12px; font-family: Sora, sans-serif; font-weight: 700; font-size: 1.15rem; }
+  .logo-mark { width: 42px; height: 42px; border-radius: 13px; background: var(--grad); color: #fff; display: grid; place-items: center; font-size: 1.25rem; box-shadow: 0 10px 28px -8px rgba(255,95,162,.7); }
+  .btn { font: inherit; font-weight: 600; font-size: .9rem; color: var(--ink); background: var(--glass2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px; cursor: pointer; }
+  .btn:hover:not(:disabled) { border-color: var(--cyan); }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn.primary { background: var(--grad); color: #fff; border-color: transparent; box-shadow: 0 14px 30px -12px rgba(255,95,162,.9); }
+  .btn.big { padding: 15px 30px; font-size: 1.02rem; font-weight: 800; border-radius: 16px; }
+  .btn.icon { width: 44px; padding: 0; font-size: 1.05rem; }
+
+  h1 { font-family: Sora, sans-serif; font-weight: 800; letter-spacing: -.03em; line-height: 1.05; font-size: clamp(2.2rem, 5.6vw, 3.9rem); max-width: 14em;
+       background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; padding-bottom: .1em; }
+  .lead { color: var(--muted); margin: 14px 0 24px; max-width: 58ch; font-size: 1.05rem; }
+  .hero-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 36px; }
+  .hint { color: var(--muted); font-size: .88rem; }
+  .banner { margin: -18px 0 26px; font-size: .85rem; font-weight: 600; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--glass); display: none; }
+  .banner.show { display: block; } .banner.ok { color: var(--ok); } .banner.err { color: var(--danger); line-height: 1.7; }
+
+  .card { border-radius: 24px; border: 1px solid var(--line); background: var(--glass); backdrop-filter: blur(20px); box-shadow: 0 36px 80px -46px rgba(70,50,220,.7); padding: 22px; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-bottom: 18px; }
+  .wide { grid-column: 1 / -1; }
+  .step { counter-increment: s; }
+  .grid { counter-reset: s; }
+  .step h2 { font-family: Sora, sans-serif; font-size: 1.1rem; display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+  .step h2::before { content: counter(s); width: 30px; height: 30px; border-radius: 50%; background: var(--grad); color: #fff; font-size: .9rem; display: grid; place-items: center; flex: none; }
+  .step p.d { color: var(--muted); font-size: .9rem; margin-bottom: 14px; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+  .stat { margin-top: 12px; font-size: .78rem; color: var(--muted); letter-spacing: .03em; }
+  .stat b { color: var(--ok); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { font: inherit; font-size: .82rem; font-weight: 600; color: var(--ink); background: var(--glass2); border: 1px solid var(--cyan); border-radius: 999px; padding: 6px 13px; cursor: pointer; }
+  .chip.off { border-color: var(--line); color: var(--muted); text-decoration: line-through; }
+  .tok { font-family: "JetBrains Mono", monospace; font-size: .76rem; min-width: 34px; text-align: center; padding: 4px 6px; border-radius: 6px; background: var(--glass2); border: 1px solid var(--line); }
+  .tok.n { color: var(--cyan); } .tok.h { color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); } th { color: var(--muted); font-weight: 600; }
+
+  label.sl { display: flex; align-items: center; gap: 10px; font-size: .88rem; font-weight: 600; }
+  input[type=range] { accent-color: var(--brand); width: 130px; }
+  select { font: inherit; font-weight: 600; color: var(--ink); background: var(--glass2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+  select option { color: #1a1540; background: #fff; }
+  .progress { height: 8px; border-radius: 8px; background: var(--line); overflow: hidden; margin-top: 14px; }
+  .progress i { display: block; height: 100%; width: 0; background: var(--grad); transition: width .3s; }
+  canvas { width: 100%; display: block; }
+  #chart { height: 110px; margin-top: 12px; border-radius: 12px; background: var(--roll); }
+  #roll { height: 240px; border-radius: 14px; background: var(--roll); border: 1px solid var(--line); }
+  .spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast { position: fixed; z-index: 5; left: 50%; bottom: 28px; transform: translate(-50%, 30px); opacity: 0; pointer-events: none; background: var(--grad); color: #fff; padding: 12px 22px; border-radius: 999px; font-weight: 700; transition: .25s; }
+  .toast.show { transform: translate(-50%, 0); opacity: 1; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="bg" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<div class="wrap">
+  <header>
+    <div class="logo"><span class="logo-mark" aria-hidden="true">♪</span> MelodyMind</div>
+    <button class="btn icon" id="themeBtn" type="button" aria-label="Switch between light and dark theme">🌙</button>
+  </header>
+
+  <h1>Teach an AI to compose music.</h1>
+  <p class="lead">MelodyMind learns from MIDI songs, trains an LSTM neural network right in your browser, and then writes brand new melodies that you can play, download as MIDI, or save as audio.</p>
+  <div class="hero-actions">
+    <button class="btn primary big" id="runBtn" type="button">⚡ Run full pipeline</button>
+    <span class="hint">Or go step by step below. Training takes about a minute.</span>
+  </div>
+  <div class="banner" id="banner"></div>
+
+  <div class="grid">
+    <section class="card step">
+      <h2>Collect MIDI data</h2>
+      <p class="d">Seven classic folk melodies are built in. Click a song to include or exclude it, or upload your own .mid files.</p>
+      <div class="chips" id="songs"></div>
+      <div class="row"><button class="btn" id="upBtn" type="button">📁 Upload MIDI files</button><input type="file" id="file" accept=".mid,.midi" multiple hidden /></div>
+      <div class="stat mono" id="s1"></div>
+    </section>
+
+    <section class="card step">
+      <h2>Preprocess the data</h2>
+      <p class="d">Extract the melody, snap it to a 16th-note grid, turn it into tokens, add transposed copies, and cut it into training windows.</p>
+      <div class="chips" id="tokens"></div>
+      <div class="row"><button class="btn primary" id="preBtn" type="button">Preprocess</button></div>
+      <div class="stat mono" id="s2">Tokens: <b>·</b> rest &nbsp; <b>–</b> hold &nbsp; note name = new note</div>
+    </section>
+
+    <section class="card step">
+      <h2>Build the deep learning model</h2>
+      <p class="d">An Embedding layer, two LSTM layers and a softmax output that predicts the next musical step.</p>
+      <div id="summary"></div>
+      <div class="row"><button class="btn primary" id="buildBtn" type="button" disabled>Build model</button></div>
+      <div class="stat mono" id="s3"></div>
+    </section>
+
+    <section class="card step">
+      <h2>Train the model</h2>
+      <p class="d">The model reads 32 steps of music and learns to guess the next one. Loss goes down as it learns.</p>
+      <div class="row"><label class="sl">Epochs <input type="range" id="epochs" min="5" max="60" value="25" /> <span id="epochsVal" class="mono">25</span></label>
+        <button class="btn primary" id="trainBtn" type="button" disabled>Start training</button></div>
+      <div class="progress"><i id="bar"></i></div>
+      <canvas id="chart" width="560" height="110"></canvas>
+      <div class="stat mono" id="s4"></div>
+    </section>
+
+    <section class="card step wide">
+      <h2>Generate new music</h2>
+      <p class="d">The trained model starts from a short seed and keeps predicting the next step to compose a new melody.</p>
+      <div class="row">
+        <label class="sl">Creativity <input type="range" id="temp" min="40" max="160" value="90" /> <span id="tempVal" class="mono">0.9</span></label>
+        <label class="sl">Length <input type="range" id="bars" min="4" max="16" value="8" /> <span id="barsVal" class="mono">8 bars</span></label>
+        <button class="btn primary" id="genBtn" type="button" disabled>🎵 Generate music</button>
+      </div>
+      <div class="stat mono" id="s5"></div>
+    </section>
+  </div>
+
+  <section class="card step" style="margin-bottom:0">
+    <h2 style="margin-bottom:14px">Play and save</h2>
+    <canvas id="roll" width="1000" height="240"></canvas>
+    <div class="row">
+      <button class="btn primary" id="playBtn" type="button" disabled>▶ Play</button>
+      <label class="sl">Tempo <input type="range" id="bpm" min="60" max="180" value="110" /> <span id="bpmVal" class="mono">110</span></label>
+      <select id="inst" aria-label="Instrument"><option value="piano">Piano-like</option><option value="flute">Soft flute</option><option value="chip">Chiptune</option></select>
+      <button class="btn" id="midiBtn" type="button" disabled>⬇ Save MIDI</button>
+      <button class="btn" id="wavBtn" type="button" disabled>⬇ Save audio (WAV)</button>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* Loads TensorFlow.js. Tries a local copy first (tf.min.js next to this file), then several CDNs. */
+window.loadTF = async function () {
+  const urls = ["tf.min.js",
+    "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js",
+    "https://fastly.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js",
+    "https://gcore.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js",
+    "https://unpkg.com/@tensorflow/tfjs@4.22.0/dist/tf.min.js"];
+  for (const u of urls) {
+    try {
+      await new Promise((ok, no) => { const s = document.createElement("script"); s.src = u; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+      if (window.tf) return true;
+    } catch (e) { /* try the next source */ }
+  }
+  return false;
+};
+</script>
+<script>
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function toast(m) { const t = $("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 2400); }
+
+/* ============ TOKENS ============
+   Music is a melody on a 16th-note grid. Every grid step is one token:
+   0 = REST (silence), 1 = HOLD (keep the note going), 2.. = a new note (MIDI pitch 48..84)       */
+const MIN = 48, MAX = 84, V = 2 + (MAX - MIN + 1), SEQ = 32, REST = 0, HOLD = 1;
+const NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const noteName = p => NAMES[p % 12] + (Math.floor(p / 12) - 1);
+
+/* ============ 1. COLLECT: built-in songs (public-domain melodies), format note:length in 16th steps ============ */
+const SEMI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+function parseSong(str) {
+  const seq = [];
+  str.trim().split(/\s+/).forEach(tok => {
+    const [n, d] = tok.split(":"), dur = +d;
+    if (n === "R") { for (let i = 0; i < dur; i++) seq.push(REST); return; }
+    const m = n.match(/^([A-G])(#?)(\d)$/), p = SEMI[m[1]] + (m[2] ? 1 : 0) + 12 * (+m[3] + 1);
+    seq.push(p - MIN + 2); for (let i = 1; i < dur; i++) seq.push(HOLD);
+  });
+  return seq;
+}
+const BUILTIN = [
+  ["Twinkle Twinkle", "C4:4 C4:4 G4:4 G4:4 A4:4 A4:4 G4:8 F4:4 F4:4 E4:4 E4:4 D4:4 D4:4 C4:8 G4:4 G4:4 F4:4 F4:4 E4:4 E4:4 D4:8 G4:4 G4:4 F4:4 F4:4 E4:4 E4:4 D4:8 C4:4 C4:4 G4:4 G4:4 A4:4 A4:4 G4:8 F4:4 F4:4 E4:4 E4:4 D4:4 D4:4 C4:8"],
+  ["Ode to Joy", "E4:4 E4:4 F4:4 G4:4 G4:4 F4:4 E4:4 D4:4 C4:4 C4:4 D4:4 E4:4 E4:6 D4:2 D4:8 E4:4 E4:4 F4:4 G4:4 G4:4 F4:4 E4:4 D4:4 C4:4 C4:4 D4:4 E4:4 D4:6 C4:2 C4:8 D4:4 D4:4 E4:4 C4:4 D4:4 E4:2 F4:2 E4:4 C4:4 D4:4 E4:2 F4:2 E4:4 D4:4 C4:4 D4:4 G3:8 E4:4 E4:4 F4:4 G4:4 G4:4 F4:4 E4:4 D4:4 C4:4 C4:4 D4:4 E4:4 D4:6 C4:2 C4:8"],
+  ["Mary Had a Little Lamb", "E4:4 D4:4 C4:4 D4:4 E4:4 E4:4 E4:8 D4:4 D4:4 D4:8 E4:4 G4:4 G4:8 E4:4 D4:4 C4:4 D4:4 E4:4 E4:4 E4:4 E4:4 D4:4 D4:4 E4:4 D4:4 C4:16"],
+  ["Jingle Bells", "E4:4 E4:4 E4:8 E4:4 E4:4 E4:8 E4:4 G4:4 C4:6 D4:2 E4:16 F4:4 F4:4 F4:6 F4:2 F4:4 E4:4 E4:4 E4:2 E4:2 E4:4 D4:4 D4:4 E4:4 D4:8 G4:8 E4:4 E4:4 E4:8 E4:4 E4:4 E4:8 E4:4 G4:4 C4:6 D4:2 E4:16 F4:4 F4:4 F4:6 F4:2 F4:4 E4:4 E4:4 E4:2 E4:2 G4:4 G4:4 F4:4 D4:4 C4:16"],
+  ["Frere Jacques", "C4:4 D4:4 E4:4 C4:4 C4:4 D4:4 E4:4 C4:4 E4:4 F4:4 G4:8 E4:4 F4:4 G4:8 G4:3 A4:1 G4:3 F4:1 E4:4 C4:4 G4:3 A4:1 G4:3 F4:1 E4:4 C4:4 C4:4 G3:4 C4:8 C4:4 G3:4 C4:8"],
+  ["Greensleeves", "A4:4 C5:8 D5:4 E5:6 F5:2 E5:4 D5:8 B4:4 G4:6 A4:2 B4:4 C5:8 A4:4 A4:6 G#4:2 A4:4 B4:8 G#4:4 E4:12 A4:4 C5:8 D5:4 E5:6 F5:2 E5:4 D5:8 B4:4 G4:6 A4:2 B4:4 C5:6 B4:2 A4:4 G#4:6 F#4:2 G#4:4 A4:12"],
+  ["Row Your Boat", "C4:6 C4:6 C4:4 D4:2 E4:6 E4:4 D4:2 E4:4 F4:2 G4:12 C5:2 C5:2 C5:2 G4:2 G4:2 G4:2 E4:2 E4:2 E4:2 C4:2 C4:2 C4:2 G4:4 F4:2 E4:4 D4:2 C4:12"]
+];
+let songs = BUILTIN.map(([name, s]) => ({ name, seq: parseSong(s), on: true }));
+
+/* Minimal MIDI file reader: turns an uploaded .mid file into a melody token sequence */
+function parseMidi(buf) {
+  const d = new DataView(buf); let p = 0;
+  const str = n => { let s = ""; for (let i = 0; i < n; i++) s += String.fromCharCode(d.getUint8(p++)); return s; };
+  const vlq = () => { let v = 0, b; do { b = d.getUint8(p++); v = (v << 7) | (b & 127); } while (b & 128); return v; };
+  if (str(4) !== "MThd") throw new Error("not a MIDI file");
+  p += 4; p += 2; const ntrk = d.getUint16(p); p += 2; const div = d.getUint16(p); p += 2;
+  if (div & 0x8000) throw new Error("unsupported timing");
+  const notes = [];
+  for (let t = 0; t < ntrk; t++) {
+    if (str(4) !== "MTrk") break;
+    const len = d.getUint32(p); p += 4; const end = p + len; let tick = 0, run = 0; const on = {};
+    while (p < end) {
+      tick += vlq(); let st = d.getUint8(p);
+      if (st & 0x80) { p++; if (st < 0xF0) run = st; } else st = run;
+      if (st === 0xFF) { p++; const l = vlq(); p += l; }
+      else if (st === 0xF0 || st === 0xF7) { const l = vlq(); p += l; }
+      else {
+        const hi = st & 0xF0, ch = st & 15, a = d.getUint8(p++), b = (hi === 0xC0 || hi === 0xD0) ? 0 : d.getUint8(p++);
+        if (ch === 9) continue;                                   // skip drums
+        const key = ch * 128 + a;
+        if (hi === 0x90 && b > 0) on[key] = tick;
+        else if ((hi === 0x80 || hi === 0x90) && on[key] !== undefined) { notes.push({ pitch: a, s: on[key], e: tick }); delete on[key]; }
+      }
+    }
+    p = end;
+  }
+  const step = div / 4, best = new Map();                         // snap to 16th grid, keep the highest note (melody)
+  notes.forEach(n => {
+    const s = Math.round(n.s / step), dur = Math.max(1, Math.round((n.e - n.s) / step)), old = best.get(s);
+    if (!old || n.pitch > old.pitch) best.set(s, { pitch: n.pitch, dur });
+  });
+  const seq = []; let cur = 0;
+  [...best.keys()].sort((a, b) => a - b).forEach(s => {
+    if (s < cur || seq.length > 900) return;
+    let { pitch, dur } = best.get(s);
+    while (pitch < MIN) pitch += 12; while (pitch > MAX) pitch -= 12;
+    dur = Math.min(dur, 16);
+    while (cur < s) { seq.push(REST); cur++; }
+    seq.push(pitch - MIN + 2); for (let i = 1; i < dur; i++) seq.push(HOLD); cur = s + dur;
+  });
+  return seq;
+}
+
+function renderSongs() {
+  const box = $("songs"); box.innerHTML = "";
+  songs.forEach(s => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "chip" + (s.on ? "" : " off");
+    b.textContent = s.name; b.title = s.seq.length + " steps";
+    b.onclick = () => { s.on = !s.on; renderSongs(); };
+    box.appendChild(b);
+  });
+  const on = songs.filter(s => s.on);
+  $("s1").innerHTML = "Songs selected: <b>" + on.length + "</b> &nbsp; Total steps: <b>" + on.reduce((a, s) => a + s.seq.length, 0) + "</b>";
+}
+$("upBtn").onclick = () => $("file").click();
+$("file").onchange = async e => {
+  for (const f of e.target.files) {
+    try {
+      const seq = parseMidi(await f.arrayBuffer());
+      if (seq.filter(t => t >= 2).length < 20) throw new Error("too few notes");
+      songs.push({ name: f.name.replace(/\.midi?$/i, ""), seq, on: true });
+    } catch (err) { toast("Could not read " + f.name + ": " + err.message); }
+  }
+  e.target.value = ""; renderSongs();
+};
+
+/* ============ 2. PREPROCESS ============ */
+let data = null, model = null, trained = false, gen = null, busy = false, tfOk = false;
+function preprocess() {
+  const on = songs.filter(s => s.on);
+  if (!on.length) { toast("Select at least one song"); return false; }
+  const X = [], Y = [], seeds = [];
+  on.forEach(s => {
+    for (let sh = -2; sh <= 2; sh++) {                           // data augmentation: transpose up and down
+      const q = s.seq.map(t => t >= 2 ? Math.min(V - 1, Math.max(2, t + sh)) : t);
+      for (let i = 0; i + SEQ < q.length; i++) {                 // sliding window: 32 steps in, next step out
+        X.push(q.slice(i, i + SEQ)); Y.push(q[i + SEQ]);
+        if (sh === 0 && i % 8 === 0) seeds.push(q.slice(i, i + SEQ));
+      }
+    }
+  });
+  if (X.length < 100) { toast("Need more music data"); return false; }
+  data = { X, Y, seeds }; model = null; trained = false;
+  const box = $("tokens"); box.innerHTML = "";
+  on[0].seq.slice(0, 40).forEach(t => {
+    const s = document.createElement("span"); s.className = "tok " + (t >= 2 ? "n" : t === 1 ? "h" : "");
+    s.textContent = t >= 2 ? noteName(t - 2 + MIN) : t === 1 ? "–" : "·"; box.appendChild(s);
+  });
+  $("s2").innerHTML = "Training sequences: <b>" + X.length + "</b> &nbsp; Vocabulary: <b>" + V + " tokens</b> &nbsp; Window: <b>" + SEQ + " steps</b>";
+  $("summary").innerHTML = ""; $("s3").textContent = ""; $("s4").textContent = ""; $("bar").style.width = "0";
+  update(); return true;
+}
+
+/* ============ 3. BUILD THE DEEP LEARNING MODEL ============ */
+function buildModel() { try { _buildModel(); } catch (e) { console.error(e); toast("Could not build model: " + e.message); } }
+function _buildModel() {
+  model = tf.sequential();
+  model.add(tf.layers.embedding({ inputDim: V, outputDim: 24, inputLength: SEQ }));
+  model.add(tf.layers.lstm({ units: 96, returnSequences: true }));
+  model.add(tf.layers.dropout({ rate: 0.2 }));
+  model.add(tf.layers.lstm({ units: 64 }));
+  model.add(tf.layers.dense({ units: V, activation: "softmax" }));
+  model.compile({ optimizer: tf.train.adam(0.005), loss: "categoricalCrossentropy", metrics: ["accuracy"] });
+  let rows = "<table><tr><th>Layer</th><th>Output shape</th><th>Params</th></tr>", total = 0;
+  model.layers.forEach(l => { total += l.countParams(); rows += "<tr><td>" + l.getClassName() + "</td><td class='mono'>" + JSON.stringify(l.outputShape) + "</td><td class='mono'>" + l.countParams() + "</td></tr>"; });
+  $("summary").innerHTML = rows + "</table>";
+  $("s3").innerHTML = "Total parameters: <b>" + total.toLocaleString() + "</b> &nbsp; Backend: <b>" + tf.getBackend() + "</b>";
+  trained = false; update();
+}
+
+/* ============ 4. TRAIN ============ */
+const hist = { loss: [], acc: [] };
+function drawChart() {
+  const c = $("chart"), g = c.getContext("2d"), w = c.width, h = c.height;
+  g.clearRect(0, 0, w, h); if (hist.loss.length < 2) return;
+  const maxL = Math.max(...hist.loss), n = hist.loss.length - 1;
+  const line = (arr, max, col) => { g.beginPath(); g.strokeStyle = col; g.lineWidth = 3; arr.forEach((v, i) => { const x = 10 + i / n * (w - 20), y = h - 10 - v / max * (h - 24); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); };
+  line(hist.loss, maxL, "#ff5fa2"); line(hist.acc, 1, "#29d3ee");
+  g.font = "600 12px JetBrains Mono, monospace"; g.fillStyle = "#ff5fa2"; g.fillText("loss", 12, 14); g.fillStyle = "#29d3ee"; g.fillText("accuracy", 56, 14);
+}
+async function train() {
+  const E = +$("epochs").value; busy = true; update(); hist.loss = []; hist.acc = [];
+  const xs = tf.tensor2d(data.X, [data.X.length, SEQ], "int32");
+  const ys = tf.oneHot(tf.tensor1d(data.Y, "int32"), V).cast("float32");
+  try {
+    await model.fit(xs, ys, { epochs: E, batchSize: 64, shuffle: true, callbacks: { onEpochEnd: (ep, logs) => {
+      hist.loss.push(logs.loss); hist.acc.push(logs.acc ?? logs.accuracy ?? 0); drawChart();
+      $("bar").style.width = (ep + 1) / E * 100 + "%";
+      $("s4").innerHTML = "Epoch <b>" + (ep + 1) + "/" + E + "</b> &nbsp; loss <b>" + logs.loss.toFixed(3) + "</b> &nbsp; accuracy <b>" + Math.round(hist.acc[hist.acc.length - 1] * 100) + "%</b>";
+    } } });
+    trained = true;
+  } catch (e) { console.error(e); toast("Training failed: " + e.message); }
+  xs.dispose(); ys.dispose(); busy = false; update();
+}
+
+/* ============ 5. GENERATE ============ */
+function sampleToken(probs, temp) {
+  const p = Array.from(probs, x => Math.pow(Math.max(x, 1e-8), 1 / temp)), sum = p.reduce((a, b) => a + b, 0);
+  let r = Math.random() * sum; for (let i = 0; i < p.length; i++) { r -= p[i]; if (r <= 0) return i; }
+  return p.length - 1;
+}
+function tokensToNotes(tokens) {                                  // token sequence -> list of notes
+  const notes = []; let cur = null;
+  tokens.forEach((t, i) => {
+    if (t >= 2) { cur = { pitch: t - 2 + MIN, start: i, dur: 1 }; notes.push(cur); }
+    else if (t === HOLD && cur) cur.dur++; else cur = null;
+  });
+  return notes;
+}
+async function generate() { try { await _generate(); } catch (e) { console.error(e); toast("Generation failed: " + e.message); busy = false; update(); } }
+async function _generate() {
+  busy = true; update();
+  const temp = $("temp").value / 100, n = $("bars").value * 16;
+  const ctx = data.seeds[Math.floor(Math.random() * data.seeds.length)].slice(), out = [];
+  for (let i = 0; i < n; i++) {
+    const t = tf.tidy(() => model.predict(tf.tensor2d([ctx], [1, SEQ], "int32")));
+    const probs = await t.data(); t.dispose();
+    const next = sampleToken(probs, temp); out.push(next); ctx.push(next); ctx.shift();
+    if (i % 8 === 0) await tf.nextFrame();
+  }
+  if (out[0] === HOLD) out[0] = REST;
+  gen = { tokens: out, notes: tokensToNotes(out), len: n };
+  $("s5").innerHTML = "Generated <b>" + gen.notes.length + " notes</b> in <b>" + $("bars").value + " bars</b>";
+  stop(); busy = false; update(); drawRoll(-1);
+}
+
+/* ============ 6. PLAY, SAVE AS MIDI, SAVE AS AUDIO ============ */
+function voice(ctx, dest, pitch, t, d, kind) {
+  d = Math.max(d, 0.12); const f = 440 * Math.pow(2, (pitch - 69) / 12), g = ctx.createGain(); g.connect(dest);
+  const osc = (type, freq, vol) => { const o = ctx.createOscillator(), og = ctx.createGain(); o.type = type; o.frequency.value = freq; og.gain.value = vol; o.connect(og); og.connect(g); o.start(t); o.stop(t + d + 0.5); };
+  g.gain.setValueAtTime(0.0001, t);
+  if (kind === "piano") { osc("triangle", f, 1); osc("sine", f * 2, .35); g.gain.exponentialRampToValueAtTime(.4, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + Math.max(d, .35) + .35); }
+  else if (kind === "flute") { osc("sine", f, 1); osc("sine", f * 2, .12); g.gain.linearRampToValueAtTime(.32, t + .05); g.gain.setValueAtTime(.32, t + Math.max(d - .05, .06)); g.gain.linearRampToValueAtTime(.0001, t + d + .15); }
+  else { osc("square", f, .5); g.gain.setValueAtTime(.2, t + .001); g.gain.setValueAtTime(.2, t + d * .9); g.gain.linearRampToValueAtTime(.0001, t + d + .05); }
+}
+const stepSec = () => 60 / $("bpm").value / 4;
+function schedule(ctx, dest, t0) { const ss = stepSec(), kind = $("inst").value; gen.notes.forEach(n => voice(ctx, dest, n.pitch, t0 + n.start * ss, n.dur * ss, kind)); }
+
+let actx = null, raf = 0, playStart = 0;
+function play() {
+  stop(); actx = new (window.AudioContext || window.webkitAudioContext)();
+  const m = actx.createGain(); m.gain.value = .5; m.connect(actx.destination);
+  playStart = actx.currentTime + .15; schedule(actx, m, playStart);
+  $("playBtn").textContent = "■ Stop"; tick();
+}
+function tick() {
+  if (!actx) return;
+  const step = (actx.currentTime - playStart) / stepSec(); drawRoll(step);
+  if (step > gen.len + 6) { stop(); return; }
+  raf = requestAnimationFrame(tick);
+}
+function stop() { cancelAnimationFrame(raf); if (actx) { actx.close(); actx = null; } $("playBtn").textContent = "▶ Play"; if (gen) drawRoll(-1); }
+
+function drawRoll(playhead) {                                     // piano-roll picture of the generated music
+  const c = $("roll"), g = c.getContext("2d"), w = c.width = c.clientWidth * (devicePixelRatio || 1), h = c.height = c.clientHeight * (devicePixelRatio || 1);
+  g.clearRect(0, 0, w, h);
+  if (!gen || !gen.notes.length) { g.fillStyle = css("--muted"); g.font = "600 " + 16 * (devicePixelRatio || 1) + "px Manrope, sans-serif"; g.fillText("Generate music to see it here", 20, h / 2); return; }
+  const ps = gen.notes.map(n => n.pitch), lo = Math.min(...ps) - 1, hi = Math.max(...ps) + 1, sw = w / gen.len, rh = h / (hi - lo + 1);
+  g.strokeStyle = css("--line"); g.lineWidth = 1;
+  for (let s = 0; s <= gen.len; s += 16) { g.beginPath(); g.moveTo(s * sw, 0); g.lineTo(s * sw, h); g.stroke(); }
+  gen.notes.forEach(n => {
+    const active = playhead >= n.start && playhead < n.start + n.dur;
+    g.fillStyle = "hsl(" + (260 + (n.pitch - MIN) * 4) % 360 + " 90% " + (active ? 72 : 60) + "%)";
+    g.beginPath(); const bx = n.start * sw + 1, by = h - (n.pitch - lo + 1) * rh + 1, bw = Math.max(3, n.dur * sw - 2), bh = Math.max(3, rh - 2);
+    if (g.roundRect) g.roundRect(bx, by, bw, bh, 4); else g.rect(bx, by, bw, bh); g.fill();
+  });
+  if (playhead >= 0) { g.fillStyle = "#29d3ee"; g.fillRect(playhead * sw, 0, 2 * (devicePixelRatio || 1), h); }
+}
+
+function download(blob, name) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+function saveMidi() {                                             // write a standard MIDI file (format 0)
+  const ppq = 480, st = ppq / 4, ev = [];
+  gen.notes.forEach(n => { ev.push([n.start * st, 1, n.pitch]); ev.push([(n.start + n.dur) * st, 0, n.pitch]); });
+  ev.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const vlq = v => { const b = [v & 127]; while ((v >>= 7) > 0) b.unshift((v & 127) | 128); return b; };
+  const us = Math.round(6e7 / $("bpm").value), trk = [0, 0xFF, 0x51, 3, us >> 16 & 255, us >> 8 & 255, us & 255, 0, 0xC0, 0];
+  let last = 0; ev.forEach(([t, on, p]) => { trk.push(...vlq(t - last), on ? 0x90 : 0x80, p, on ? 90 : 0); last = t; });
+  trk.push(0, 0xFF, 0x2F, 0);
+  const L = trk.length, bytes = [0x4D, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, ppq >> 8, ppq & 255, 0x4D, 0x54, 0x72, 0x6B, L >> 24 & 255, L >> 16 & 255, L >> 8 & 255, L & 255, ...trk];
+  download(new Blob([new Uint8Array(bytes)], { type: "audio/midi" }), "melodymind.mid");
+}
+async function saveWav() {                                        // render the music offline and write a WAV file
+  const sr = 44100, dur = gen.len * stepSec() + 1.5, oc = new OfflineAudioContext(1, Math.ceil(dur * sr), sr);
+  const m = oc.createGain(); m.gain.value = .5; m.connect(oc.destination); schedule(oc, m, 0.05);
+  const data = (await oc.startRendering()).getChannelData(0), n = data.length, v = new DataView(new ArrayBuffer(44 + n * 2));
+  const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, data[i])) * 32767, true);
+  download(new Blob([v], { type: "audio/wav" }), "melodymind.wav");
+}
+
+/* ============ UI ============ */
+function update() {
+  $("preBtn").disabled = busy; $("runBtn").disabled = busy || !tfOk;
+  $("buildBtn").disabled = busy || !data || !tfOk; $("trainBtn").disabled = busy || !model;
+  $("genBtn").disabled = busy || !trained;
+  $("playBtn").disabled = $("midiBtn").disabled = $("wavBtn").disabled = !gen;
+}
+$("preBtn").onclick = preprocess;
+$("buildBtn").onclick = buildModel;
+$("trainBtn").onclick = train;
+$("genBtn").onclick = generate;
+$("playBtn").onclick = () => actx ? stop() : play();
+$("midiBtn").onclick = saveMidi;
+$("wavBtn").onclick = saveWav;
+$("runBtn").onclick = async () => {
+  if (busy || !tfOk || !preprocess()) return;
+  buildModel(); if (!model) return;
+  await train(); if (!trained) return;
+  await generate(); if (gen) play();
+};
+[["epochs", "epochsVal", v => v], ["temp", "tempVal", v => (v / 100).toFixed(1)], ["bars", "barsVal", v => v + " bars"], ["bpm", "bpmVal", v => v]]
+  .forEach(([a, b, f]) => $(a).oninput = () => $(b).textContent = f($(a).value));
+$("bpm").addEventListener("change", () => { if (actx) play(); });
+window.addEventListener("resize", () => drawRoll(-1));
+
+function applyTheme(t) { document.documentElement.dataset.theme = t; $("themeBtn").textContent = t === "dark" ? "☀️" : "🌙"; if (gen) drawRoll(-1); }
+let saved = null; try { saved = localStorage.getItem("melody-theme"); } catch {}
+applyTheme(saved || "dark");
+$("themeBtn").onclick = () => { const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark"; applyTheme(t); try { localStorage.setItem("melody-theme", t); } catch {} };
+
+function setBanner(msg, cls) { const b = $("banner"); b.innerHTML = msg; b.className = "banner show " + (cls || ""); }
+renderSongs(); update(); drawRoll(-1);
+(async function init() {
+  setBanner("Loading the AI library (TensorFlow.js)…");
+  if (!(await loadTF())) {
+    setBanner("✖ Could not load TensorFlow.js (internet or firewall problem).<br>Fix: open <b>https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js</b> on any network, save it as <b>tf.min.js</b> in the same folder as this file, then refresh.", "err");
+    return;
+  }
+  try { await tf.ready(); } catch (e) { console.error(e); }
+  tfOk = true;
+  if (tf.getBackend() === "webgl") setBanner("✔ AI library ready · running on the GPU (webgl)", "ok");
+  else { $("epochs").value = 12; $("epochsVal").textContent = "12"; setBanner("✔ AI library ready · running on the CPU (slower), so epochs were set to 12", "ok"); }
+  update();
+})();
+</script>
+</body>
+</html>
